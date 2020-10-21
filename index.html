@@ -12,6 +12,7 @@
 
 
 		<script src="/three.js/build/three.min.js"></script>
+		<link rel="stylesheet" href="//brick.freetls.fastly.net/Montserrat:400,600">
 
 		<!-- <script src="/three.js/examples/js/postprocessing/EffectComposer.js"></script> -->
 		<!-- <script src="/three.js/examples/js/postprocessing/RenderPass.js"></script> -->
@@ -42,7 +43,10 @@
 			handTrack.load(modelParams).then(model => {
 				handTrack.startVideo(video).then(function (status) {
 					if(status) {
-						document.querySelector('.loader').style.display = 'none';
+						document.querySelector('.loader').style.opacity = '0'
+						setTimeout( () => {
+							document.querySelector('.loader').style.display = 'none'
+						}, 1000)
 						hModel = model
 						detectHands()
 					}
@@ -239,22 +243,29 @@
 			body {
 				margin: 0;
 			}
+			* {
+				font-family: 'Montserrat', 'Futura', 'Avenir', sans-serif;
+			}
 			.loader {
 				position: fixed;
 				top: 0;
 				left: 0;
 				width: 100%;
 				height: 100vh;
-				background: #aaa;
+				background: #111;
 				color: white;
 				text-transform: uppercase;
 				letter-spacing: 2px;
+				display: block;
+				opacity: 1;
+				transition: 0.5s opacity ease;
 			}
 			.loader h2 {
 				position: fixed;
 				top: 50%;
 				left: 50%;
 				transform: translate(-50%,-50%);
+				color: #666;
 			}
 			canvas {
 				display: block;
@@ -268,6 +279,7 @@
 				z-index: 2;
 				opacity: 0.05;
 				transform: scaleX(-1);
+				filter: blur(10px);
 			}
 	</style>
 </html>
