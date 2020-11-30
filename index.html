@@ -4,9 +4,17 @@
 	</head>
 	<body>
 
+		<audio src="/talisman.mp3" style="display:none" class="soundtrack"></audio>
+
+		<div class="init">
+			<button class="button" type="button" onclick="init()">Start oppleving</button>
+		</div>
+
 		<div class="loader">
 			<h2>Laster</h3>
 		</div>
+
+		<p class="help">Sørg for at handa alltid er i kameraet sitt syn. Beveg handa opp, ned, venstre og høgre.</p>
 
 		<video autoplay="true" class="video"></video>
 
@@ -28,214 +36,230 @@
 			import { FilmPass } from '/three.js/examples/jsm/postprocessing/FilmPass.js';
 			import { AfterimagePass } from '/three.js/examples/jsm/postprocessing/AfterimagePass.js';
 
-			var video = document.querySelector('.video')
+			window.init = function init() {
 
-			var hModel
-			var hands
+				document.querySelector('.soundtrack').play()
 
-			var modelParams = {
-					// flipHorizontal: true,   // flip e.g for video
-					maxNumBoxes: 20,        // maximum number of boxes to detect
-					iouThreshold: 0.5,      // ioU threshold for non-max suppression
-					scoreThreshold: 0.6,    // confidence threshold for predictions.
-			}
 
-			handTrack.load(modelParams).then(model => {
-				handTrack.startVideo(video).then(function (status) {
-					if(status) {
-						document.querySelector('.loader').style.opacity = '0'
-						setTimeout( () => {
-							document.querySelector('.loader').style.display = 'none'
-						}, 1000)
-						hModel = model
-						detectHands()
-					}
+				document.querySelector('.init').style.opacity = '0'
+				setTimeout( () => {
+					document.querySelector('.init').style.display = 'none'
+				}, 1000)
+
+				var video = document.querySelector('.video')
+
+				var hModel
+				var hands
+
+				var modelParams = {
+						// flipHorizontal: true,   // flip e.g for video
+						maxNumBoxes: 20,        // maximum number of boxes to detect
+						iouThreshold: 0.5,      // ioU threshold for non-max suppression
+						scoreThreshold: 0.6,    // confidence threshold for predictions.
+				}
+
+				handTrack.load(modelParams).then(model => {
+					handTrack.startVideo(video).then(function (status) {
+						if(status) {
+							document.querySelector('.loader').style.opacity = '0'
+							document.querySelector('.help').style.opacity = '0.5'
+							setTimeout( () => {
+								document.querySelector('.loader').style.display = 'none'
+								document.querySelector('.help').style.display = 'block'
+							}, 1000)
+							hModel = model
+
+							setTimeout( () => {
+								detectHands()
+							}, 4000)
+						}
+					})
 				})
-			})
 
-			function detectHands() {
-				hModel.detect(video).then(predictions => {
-					// console.log('Predictions: ', predictions)
-					hands = predictions
-					// if(predictions[0]) {
-					// 	console.log(predictions[0].bbox)
-					// }
-					requestAnimationFrame(detectHands);
-				})
-
-			}
-
-
-			var scene = new THREE.Scene();
-			var camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
-
-			var renderer = new THREE.WebGLRenderer();
-			renderer.setSize( window.innerWidth, window.innerHeight );
-			document.body.appendChild( renderer.domElement );
-	
-			const composer = new EffectComposer( renderer );
-			composer.addPass( new RenderPass( scene, camera ) );
-
-			let afterimagePass = new AfterimagePass();
-			//composer.addPass( afterimagePass );
-
-			//afterimagePass.uniforms[ "damp" ].value = 0.99
-
-			const filmPass = new FilmPass(
-				0.6,   // noise intensity
-				0,  // scanline intensity
-				0,    // scanline count
-				true,  // grayscale
-			);
-			filmPass.renderToScreen = true;
-			composer.addPass(filmPass);
-      //
-			// var afterimagePass;
-			// var params = {
-			// 	enable: true
-			// }
-			// afterimagePass = new AfterimagePass();
-			// composer.addPass( afterimagePass );
-
-
-			var light = new THREE.PointLight( 0xffffff ); // soft white light
-			light.position.x = -10
-			light.position.y = 7
-			light.intensity = 0.8
-			scene.add( light );
-
-			var light2 = new THREE.PointLight( 0xffffff ); // soft white light
-			light2.position.x = 12
-			light2.position.y = -2
-			scene.add( light2 );
-
-			var light3 = new THREE.PointLight( 0xBF7396 ); // soft white light
-			light3.position.x = -5
-			light3.position.y = 15
-			light3.position.z = 10
-			light3.intensity = 0.3
-			scene.add( light3 );
-
-
-			var terrainGeometry = new THREE.SphereGeometry( 60,8, 12 );
-			let terrainMaterial = new THREE.MeshLambertMaterial( { color: 0x444444, side: THREE.DoubleSide, shading: THREE.SmoothShading } );
-			let terrainMaterialShader
-
-			terrainMaterial.onBeforeCompile = (shader) => {
-				shader.uniforms.time = { value: 0}
-				shader.uniforms.intensity = { value: 0.5 }
-				shader.uniforms.amount = { value: 5 }
-				shader.vertexShader = `
-					uniform float time;
-					uniform float intensity;
-					uniform float amount;
-					` + shader.vertexShader
-				const token = '#include <begin_vertex>'
-				const customTransform = `
-					vec3 transformed = vec3(position);
-					transformed.x = position.x + sin(position.y*amount + time*0.2)*(intensity * 2.0);
-					transformed.y = position.y + sin(position.x*amount + time*0.2)*(intensity * 0.1);
-					// transformed.y = position.y + sin(position.y*intensity + time*0.5)*0.5;
-					transformed.z = position.z - sin(position.z*amount + time*0.2)*(intensity * 0.1);
-				`
-				shader.vertexShader = shader.vertexShader.replace(token,customTransform)
-				materialShader = shader
-			}
-
-			let terrain = new THREE.Mesh( terrainGeometry, terrainMaterial );
-			terrain.geometry.computeVertexNormals(true);
-			terrain.position.z = -70
-			scene.add( terrain );
-
-
-
-			// var geometry = new THREE.SphereGeometry( 1,15, 40, 120 );
-			var geometry = new THREE.IcosahedronGeometry( 1,15, 40, 120 );
-			let material = new THREE.MeshLambertMaterial( { color: 0xD9BAC9, side: THREE.DoubleSide, shading: THREE.SmoothShading } );
-			let materialShader
-
-			material.onBeforeCompile = (shader) => {
-				shader.uniforms.time = { value: 0}
-				shader.uniforms.intensity = { value: 0.5 }
-				shader.uniforms.amount = { value: 5 }
-				shader.vertexShader = `
-					uniform float time;
-					uniform float intensity;
-					uniform float amount;
-					` + shader.vertexShader
-				const token = '#include <begin_vertex>'
-				const customTransform = `
-					vec3 transformed = vec3(position);
-					transformed.x = position.x + sin(position.y*amount + time*0.2)*(intensity * 0.1);
-					transformed.y = position.y + sin(position.x*amount + time*0.2)*(intensity * 0.1);
-					// transformed.y = position.y + sin(position.y*intensity + time*0.5)*0.5;
-					transformed.z = position.z + sin(position.z*amount + time*0.2)*(intensity * 0.1);
-				`
-				shader.vertexShader = shader.vertexShader.replace(token,customTransform)
-				materialShader = shader
-			}
-
-			material.shading = THREE.SmoothShading
-
-			let blom = new THREE.Mesh( geometry, material );
-			blom.geometry.computeVertexNormals(true);
-			blom.position.z = -3.5
-			scene.add( blom );
-
-
-
-			camera.position.z = 5;
-
-			var animate = function (time) {
-				requestAnimationFrame( animate );
-				TWEEN.update(time)
-				terrain.rotation.y += 0.0005
-				blom.rotation.y += 0.01
-				if(materialShader && hands) {
-					// console.log(Array.isArray(hands[0].bbox[0]))
-					if(hands[0].bbox[0]) {
-						// var coords = {
-						// 	intensity: materialShader.uniforms.intensity.value,
-						// 	amount: materialShader.uniforms.amount.value
+				function detectHands() {
+					hModel.detect(video).then(predictions => {
+						// console.log('Predictions: ', predictions)
+						hands = predictions
+						// if(predictions[0]) {
+						// 	console.log(predictions[0].bbox)
 						// }
-						// var tween = new TWEEN.Tween(coords)
-						// 	.to({
-						// 		intensity: hands[0].bbox[1],
-						// 		amount: hands[0].bbox[0]
-						// 	}, 400)
-						// 	.easing(TWEEN.Easing.Quadratic.Out)
-						// 	.onUpdate(() => {
-						// 		// materialShader.uniforms.intensity.value = (hands[0].bbox[1] / 10)
-						// 		// materialShader.uniforms.amount.value = (hands[0].bbox[0] / 10)
-						// 		materialShader.uniforms.intensity.value = (coords.intensity / 10)
-						// 		materialShader.uniforms.amount.value = (coords.amount / 10)
-						// 	})
-						// 	.start()
+						requestAnimationFrame(detectHands);
+					})
 
-						
-						materialShader.uniforms.intensity.value = (hands[0].bbox[1] / 20)
-						materialShader.uniforms.amount.value = (hands[0].bbox[0] / 20)
-					}
 				}
-				if(materialShader) {
-					materialShader.uniforms.time.value = time/170
 
-					//materialShader.uniforms.intensity.value = 20
-					//materialShader.uniforms.amount.value = 5
-				}
-				// 	materialShader.uniforms.intensity.value = (this.cursorX / 300) - 3
-				// 	materialShader.uniforms.amount.value = (this.cursorY / 90)
-				// 	materialShader.uniforms.time.value = time/1000;
-        //
-				// 	stilkMaterialShader.uniforms.time.value = time/1000;
-				// 	stilkMaterialShader.uniforms.intensity.value = (this.cursorX / 6000) - 0.2
+
+				var scene = new THREE.Scene();
+				var camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
+
+				var renderer = new THREE.WebGLRenderer();
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				document.body.appendChild( renderer.domElement );
+		
+				const composer = new EffectComposer( renderer );
+				composer.addPass( new RenderPass( scene, camera ) );
+
+				let afterimagePass = new AfterimagePass();
+				//composer.addPass( afterimagePass );
+
+				//afterimagePass.uniforms[ "damp" ].value = 0.99
+
+				const filmPass = new FilmPass(
+					0.6,   // noise intensity
+					0,  // scanline intensity
+					0,    // scanline count
+					true,  // grayscale
+				);
+				filmPass.renderToScreen = true;
+				composer.addPass(filmPass);
+				//
+				// var afterimagePass;
+				// var params = {
+				// 	enable: true
 				// }
+				// afterimagePass = new AfterimagePass();
+				// composer.addPass( afterimagePass );
 
-				// renderer.render( scene, camera );
-				composer.render();
-			};
 
-			animate();
+				var light = new THREE.PointLight( 0xffffff ); // soft white light
+				light.position.x = -10
+				light.position.y = 7
+				light.intensity = 0.8
+				scene.add( light );
+
+				var light2 = new THREE.PointLight( 0xffffff ); // soft white light
+				light2.position.x = 12
+				light2.position.y = -2
+				scene.add( light2 );
+
+				var light3 = new THREE.PointLight( 0xBF7396 ); // soft white light
+				light3.position.x = -5
+				light3.position.y = 15
+				light3.position.z = 10
+				light3.intensity = 0.3
+				scene.add( light3 );
+
+
+				var terrainGeometry = new THREE.SphereGeometry( 60,8, 12 );
+				let terrainMaterial = new THREE.MeshLambertMaterial( { color: 0x444444, side: THREE.DoubleSide, shading: THREE.SmoothShading } );
+				let terrainMaterialShader
+
+				terrainMaterial.onBeforeCompile = (shader) => {
+					shader.uniforms.time = { value: 0}
+					shader.uniforms.intensity = { value: 0.5 }
+					shader.uniforms.amount = { value: 5 }
+					shader.vertexShader = `
+						uniform float time;
+						uniform float intensity;
+						uniform float amount;
+						` + shader.vertexShader
+					const token = '#include <begin_vertex>'
+					const customTransform = `
+						vec3 transformed = vec3(position);
+						transformed.x = position.x + sin(position.y*amount + time*0.2)*(intensity * 2.0);
+						transformed.y = position.y + sin(position.x*amount + time*0.2)*(intensity * 0.1);
+						// transformed.y = position.y + sin(position.y*intensity + time*0.5)*0.5;
+						transformed.z = position.z - sin(position.z*amount + time*0.2)*(intensity * 0.1);
+					`
+					shader.vertexShader = shader.vertexShader.replace(token,customTransform)
+					materialShader = shader
+				}
+
+				let terrain = new THREE.Mesh( terrainGeometry, terrainMaterial );
+				terrain.geometry.computeVertexNormals(true);
+				terrain.position.z = -70
+				scene.add( terrain );
+
+
+
+				// var geometry = new THREE.SphereGeometry( 1,15, 40, 120 );
+				var geometry = new THREE.IcosahedronGeometry( 1,15, 40, 120 );
+				let material = new THREE.MeshLambertMaterial( { color: 0xD9BAC9, side: THREE.DoubleSide, shading: THREE.SmoothShading } );
+				let materialShader
+
+				material.onBeforeCompile = (shader) => {
+					shader.uniforms.time = { value: 0}
+					shader.uniforms.intensity = { value: 0.5 }
+					shader.uniforms.amount = { value: 5 }
+					shader.vertexShader = `
+						uniform float time;
+						uniform float intensity;
+						uniform float amount;
+						` + shader.vertexShader
+					const token = '#include <begin_vertex>'
+					const customTransform = `
+						vec3 transformed = vec3(position);
+						transformed.x = position.x + sin(position.y*amount + time*0.2)*(intensity * 0.1);
+						transformed.y = position.y + sin(position.x*amount + time*0.2)*(intensity * 0.1);
+						// transformed.y = position.y + sin(position.y*intensity + time*0.5)*0.5;
+						transformed.z = position.z + sin(position.z*amount + time*0.2)*(intensity * 0.1);
+					`
+					shader.vertexShader = shader.vertexShader.replace(token,customTransform)
+					materialShader = shader
+				}
+
+				material.shading = THREE.SmoothShading
+
+				let blom = new THREE.Mesh( geometry, material );
+				blom.geometry.computeVertexNormals(true);
+				blom.position.z = -3.5
+				scene.add( blom );
+
+
+
+				camera.position.z = 5;
+
+				var animate = function (time) {
+					requestAnimationFrame( animate );
+					TWEEN.update(time)
+					terrain.rotation.y += 0.0005
+					blom.rotation.y += 0.01
+					if(materialShader && hands) {
+						// console.log(Array.isArray(hands[0].bbox[0]))
+						if(hands[0].bbox[0]) {
+							// var coords = {
+							// 	intensity: materialShader.uniforms.intensity.value,
+							// 	amount: materialShader.uniforms.amount.value
+							// }
+							// var tween = new TWEEN.Tween(coords)
+							// 	.to({
+							// 		intensity: hands[0].bbox[1],
+							// 		amount: hands[0].bbox[0]
+							// 	}, 400)
+							// 	.easing(TWEEN.Easing.Quadratic.Out)
+							// 	.onUpdate(() => {
+							// 		// materialShader.uniforms.intensity.value = (hands[0].bbox[1] / 10)
+							// 		// materialShader.uniforms.amount.value = (hands[0].bbox[0] / 10)
+							// 		materialShader.uniforms.intensity.value = (coords.intensity / 10)
+							// 		materialShader.uniforms.amount.value = (coords.amount / 10)
+							// 	})
+							// 	.start()
+
+							
+							materialShader.uniforms.intensity.value = (hands[0].bbox[1] / 20)
+							materialShader.uniforms.amount.value = (hands[0].bbox[0] / 20)
+						}
+					}
+					if(materialShader) {
+						materialShader.uniforms.time.value = time/170
+
+						//materialShader.uniforms.intensity.value = 20
+						//materialShader.uniforms.amount.value = 5
+					}
+					// 	materialShader.uniforms.intensity.value = (this.cursorX / 300) - 3
+					// 	materialShader.uniforms.amount.value = (this.cursorY / 90)
+					// 	materialShader.uniforms.time.value = time/1000;
+					//
+					// 	stilkMaterialShader.uniforms.time.value = time/1000;
+					// 	stilkMaterialShader.uniforms.intensity.value = (this.cursorX / 6000) - 0.2
+					// }
+
+					// renderer.render( scene, camera );
+					composer.render();
+				};
+
+				animate();
+			}
 		</script>
 
 	</body>
@@ -245,6 +269,50 @@
 			}
 			* {
 				font-family: 'Montserrat', 'Futura', 'Avenir', sans-serif;
+			}
+			.init {
+				position: fixed;
+				top: 0;
+				left: 0;
+				width: 100%;
+				height: 100vh;
+				background: #111;
+				z-index: 3;
+				color: white;
+				text-transform: uppercase;
+				letter-spacing: 2px;
+				display: block;
+				opacity: 1;
+				transition: 0.5s opacity ease;
+			}
+			.init button {
+				position: absolute;
+				top: 50%;
+				left: 50%;
+				transform: translate(-50%,-50%);;
+				background: transparent;
+				border: 4px solid #999;
+				padding: 10px 15px;
+				color: #999;
+				text-transform: uppercase;
+				letter-spacing: 1px;
+				font-weight: bold;
+				cursor: pointer;
+			}
+			.help {
+				position: fixed;
+				bottom: 30px;
+				color: #999;
+				text-transform: uppercase;
+				font-size: 14px;
+				letter-spacing: 1px;
+				left: 50%;
+				transform: translateX(-50%);
+				width: 500px;
+				text-align: center;
+				display: none;
+				opacity: 0;
+				transition: 0.5s opacity ease;
 			}
 			.loader {
 				position: fixed;
@@ -266,6 +334,7 @@
 				left: 50%;
 				transform: translate(-50%,-50%);
 				color: #666;
+				margin: 0;
 			}
 			canvas {
 				display: block;
